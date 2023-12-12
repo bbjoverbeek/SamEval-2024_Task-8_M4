@@ -45,6 +45,7 @@ def parse_args() -> argparse.Namespace:
     domain_group.add_argument(
         "-d",
         "--train-domain",
+        nargs="+",
         choices=["wikipedia", "reddit", "wikihow", "peerread", "arxiv"],
         help="Domain to train on. Will evaluate on the others.",
     )
@@ -73,6 +74,7 @@ def parse_args() -> argparse.Namespace:
     generator_group.add_argument(
         "-g",
         "--train-generator",
+        nargs="+",
         choices=["davinci", "chatGPT", "cohere", "dolly", "bloomz"],
         help="Generator to train on. Will evaluate on the others.",
     )
@@ -254,7 +256,7 @@ def main():
     if args.experiment_type == "cross-domain":
         # select all domains or just one based on command line arguments
         domains: list[Domain] = (
-            [args.train_domain]
+            sorted(args.train_domain)
             if args.train_domain
             else ["wikipedia", "reddit", "wikihow", "peerread", "arxiv"]
         )
@@ -273,10 +275,11 @@ def main():
                 print_scores(domain, scores, print_header=True)
             else:
                 print_scores(domain, scores)
+
     elif args.experiment_type == "cross-generator":
         # select all generators or just one based on command line arguments
         generators: list[Generator] = (
-            [args.train_generator]
+            sorted(args.train_generator)
             if args.train_generator
             else ["davinci", "chatGPT", "cohere", "dolly", "bloomz"]
         )
