@@ -2,7 +2,6 @@ import sys
 import json
 import spacy
 from spacy.matcher import Matcher
-from nltk.tokenize import sent_tokenize
 
 
 def initialize_matcher():
@@ -37,7 +36,7 @@ def write_to_jsonl(data, sents_voices):
                 "model": data['model'],
                 "source": data['source']}
 
-    with open('data/SubtaskA/subtaskA_train_monolingual_voice.jsonl', 'a', encoding='utf8') as f:
+    with open('data/SubtaskA/subtaskA_dev_monolingual_voice.jsonl', 'a', encoding='utf8') as f:
         print(f"Writing to json file - Current id: {new_data['id']}")
         f.write(json.dumps(new_data) + '\n')
 
@@ -48,15 +47,17 @@ def main(argv):
     with open(argv[1], 'r', encoding='utf8') as f:
         for line in f:
             data = json.loads(line)
-            sents = sent_tokenize(data['text'])    # tokenize on sentence level
+            doc = nlp(data['text'])
+            assert doc.has_annotation("SENT_START")
+
             sents_voices = dict()
             sent_id = 0
 
-            for sent in sents:
-                if detect_passive(nlp, matcher, sent):
-                    sents_voices[sent_id] = [sent, 'passive']
+            for sent in doc.sents:
+                if detect_passive(nlp, matcher, sent.text):
+                    sents_voices[sent_id] = [sent.text, 'passive']
                 else:
-                    sents_voices[sent_id] = [sent, 'active']
+                    sents_voices[sent_id] = [sent.text, 'active']
                 sent_id += 1
 
             write_to_jsonl(data, sents_voices)
