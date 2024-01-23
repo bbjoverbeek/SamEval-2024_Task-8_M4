@@ -161,3 +161,12 @@ cython_debug/
 
 /data/*
 .vscode
+.tool-versions
+commands.md
+run_commands.py
+pyrightconfig.json
+results.txt
+results/
+**/.DS_Store
+/vectors
+/features

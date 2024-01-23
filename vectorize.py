@@ -24,6 +24,15 @@ SENTENCE_BASED_FEATURES = {
 DOCUMENT_BASED_FEATURES = {
     Features.NAMED_ENTITIES,
     Features.PRONOUNS,
+    Features.DOMAIN,
+}
+
+DOMAINS = {
+    "wikipedia": 1,
+    "wikihow": 2,
+    "reddit": 3,
+    "arxiv": 4,
+    "peerread": 5,
 }
 
 
@@ -46,7 +55,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument(
         "--vectorizer",
         type=str,
-        help="The directory in which you should look for the vectorizer of that option. When applied no new vectorizer is used."
+        help="The directory in which you should look for the vectorizer of that option. When applied no new vectorizer is used.",
     )
 
     parser.add_argument(
@@ -88,7 +97,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         help="The type of vectorizer to use for sentence based features.",
     )
 
-    parser.add_argument("--input", type=str, required=True, help="The name of the input directory")
+    parser.add_argument(
+        "--input", type=str, required=True, help="The name of the input directory"
+    )
 
     parser.add_argument(
         "--output", type=str, required=True, help="The name of the output directory"
@@ -101,14 +112,15 @@ def vectorize_token_based_features(
     data: dict[int, Any], feature: Features, options: VectorizeOptions
 ) -> dict[Literal["vectorizer", "vectors"], Any]:
     ngram_range = (options.token_N_grams, options.token_N_grams)
+    min_df = 5
 
     values = [" ".join(item) for item in data.values()]
 
     if options.vectorizers == {}:
         vectorizer = (
-            CountVectorizer(ngram_range=ngram_range)
+            CountVectorizer(ngram_range=ngram_range, min_df=min_df)
             if options.token_vectorizer == Vectorizer.COUNT
-            else TfidfVectorizer(ngram_range=ngram_range)
+            else TfidfVectorizer(ngram_range=ngram_range, min_df=min_df)
         )
         vector = vectorizer.fit_transform(values).toarray()
     else:
@@ -149,6 +161,8 @@ def vectorize_data(
             return vectorize_sentence_based_features(data, feature, options)
         case Features.PRONOUNS | Features.NAMED_ENTITIES:
             return {"vectors": np.array([[item] for item in data.values()])}
+        case Features.DOMAIN:
+            return {"vectors": np.array([[DOMAINS[item]] for item in data.values()])}
         case default:
             return dict()
 
@@ -178,7 +192,9 @@ def main():
 
     if arguments.vectorizer:
         for feature in features:
-            filename = os.path.join(arguments.vectorizer, feature.value, "vectorizer.pkl")
+            filename = os.path.join(
+                arguments.vectorizer, feature.value, "vectorizer.pkl"
+            )
 
             with open(filename, "rb") as file:
                 vectorizer = pickle.load(file)
@@ -197,7 +213,7 @@ def main():
                 arguments.sentence_N_grams,
                 Vectorizer(arguments.sentence_vectorizer),
                 True,
-                vectorizers
+                vectorizers,
             ),
         )
 

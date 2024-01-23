@@ -26,6 +26,8 @@ SPACY_FEATURES = {
 
 HUGGINGFACE_FEATURES = {Features.SENTIMENT}
 
+DATA_FEATURES = {Features.DOMAIN}
+
 nlp = spacy.load("en_core_web_sm")
 
 # These patterns come from GitHub copilot
@@ -176,7 +178,7 @@ def create_features(
     sentiment_pipeline: Optional[Pipeline],
 ) -> dict[Features, dict[int, Any]]:
     # the sentiment feature needs to have individual sentences, which are tokenized using spacy
-    if Features.SENTIMENT in features:
+    if Features.SENTIMENT in features and not Features.SENTENCES in features:
         features.append(Features.SENTENCES)
 
     # for each feature create a dict with the id as key and the features as value
@@ -185,6 +187,9 @@ def create_features(
     if len(SPACY_FEATURES.intersection(features)) != 0:
         for item in tqdm(data, desc="Extracting spacy features"):
             create_spacy_features(item, features, data_features, tense_matcher, voice_matcher)
+
+    if Features.DOMAIN in features:
+        data_features[Features.DOMAIN] = {item["id"]: item["source"] for item in data}
 
     if Features.SENTIMENT in features and sentiment_pipeline is not None:
         for id, sentences in tqdm(

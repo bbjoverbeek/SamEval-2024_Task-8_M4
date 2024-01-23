@@ -20,3 +20,32 @@ To run the code the data needs to be added to the data folder. Download the data
 ```
 
 This way, when code does use hardcoded filepaths, no errors will occur. If code takes command line arguments the examples will use this structure. 
+
+## Create features
+In the examples beneath here, the features are created for all the feature options we have.
+
+Train features: 
+
+```
+python create_features.py --input data/SubtaskA/subtaskA_train_monolingual.jsonl --output features/SubtaskA/train_monolingual --features domain tense voice sentiment named-entities pronouns pos-tags dep-tags
+```
+
+Dev features:
+```
+python create_features.py --input data/SubtaskA/subtaskA_train_monolingual.jsonl --output features/SubtaskA/train_monolingual --features domain tense voice sentiment named-entities pronouns pos-tags dep-tags
+```
+
+The train and dev features for Subtask A are already created. They can be found on [google drive](https://drive.google.com/drive/folders/1Xzuq8QXmhnyHFHn96p61FO3Pi7JRilpN?usp=sharing)
+
+## Vectorize features
+In the examples for vectorizing, only the sentiment feature is used for vectorizing.
+
+Train features:
+```
+python vectorize.py --output vectors/SubtaskA/train_monolingual --input features/SubtaskA/train_monolingual --features sentiment --vectorizer vectors/SubtaskA/train_monolingual     
+```
+
+Dev features:
+```
+python vectorize.py --output vectors/SubtaskA/dev_monolingual --input features/SubtaskA/dev_monolingual --features sentiment --vectorizer vectors/SubtaskA/train_monolingual     
+```
