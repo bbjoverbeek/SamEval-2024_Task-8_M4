@@ -42,7 +42,7 @@ In the examples for vectorizing, only the sentiment feature is used for vectoriz
 
 Train features:
 ```
-python vectorize.py --output vectors/SubtaskA/train_monolingual --input features/SubtaskA/train_monolingual --features sentiment --vectorizer vectors/SubtaskA/train_monolingual     
+python vectorize.py --output vectors/SubtaskA/train_monolingual --input features/SubtaskA/train_monolingual --features sentiment  
 ```
 
 Dev features:

@@ -12,19 +12,10 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.feature_extraction.text import TfidfVectorizer
 from tqdm import tqdm
-from tqdm.keras import TqdmCallback
-from keras.utils import to_categorical
-from enum import Enum
 import numpy as np
 import os
 import pickle
-from keras import Sequential
-import json
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
-from models.nn_1 import NN_MODEL
 from utilities import Features
-from vectorize import VectorizeOptions, save_vector_data, vectorize_data
 import tensorflow
 from sklearn.svm import LinearSVC
 
