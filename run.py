@@ -86,23 +86,23 @@ def create_nn_combinations() -> list[tuple[int, int, float, int, list[Features]]
 def main():
     topic = "gurzQZYSKDVkpMej1BR7IN6sKMPPzd36BDRzKBYJWtH4zP8Mpldt1I4AWWRHA"
 
-    # classifier_combinations = create_classifier_combinations()
-    # for index, combinations in enumerate(classifier_combinations):
-    #     options = create_options("traditional", Task.A, combinations)
-    #
-    #     if index % 50 == 0:
-    #         requests.post(
-    #             f"https://ntfy.sh/{topic}",
-    #             data=f"Currently running {index + 1}/{len(classifier_combinations)} classifier combinations.".encode(
-    #                 "utf-8"
-    #             )
-    #         )
-    #
-    #     run(options)
+    classifier_combinations = create_classifier_combinations()
+    for index, combinations in enumerate(classifier_combinations):
+        options = create_options("traditional", Task.A, combinations)
+
+        if index % 50 == 0:
+            requests.post(
+                f"https://ntfy.sh/{topic}",
+                data=f"Currently running {index + 1}/{len(classifier_combinations)} classifier combinations.".encode(
+                    "utf-8"
+                )
+            )
+
+        run(options)
 
     nn_combinations = create_nn_combinations()
 
-    for index, combinations in enumerate(nn_combinations[:10]):
+    for index, combinations in enumerate(nn_combinations):
         options = create_options("nn", Task.A, combinations)
 
         if index % 50 == 0:
