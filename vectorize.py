@@ -112,7 +112,7 @@ def vectorize_token_based_features(
     data: dict[int, Any], feature: Features, options: VectorizeOptions
 ) -> dict[Literal["vectorizer", "vectors"], Any]:
     ngram_range = (options.token_N_grams, options.token_N_grams)
-    min_df = 5
+    min_df = 25 if feature.DEP_TAGS else 5
 
     values = [" ".join(item) for item in data.values()]
 
