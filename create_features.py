@@ -13,6 +13,13 @@ from tqdm import tqdm
 import os
 from utilities import Features
 
+"""
+From the data given by the shared task, we can extract multiple features: token, sentence and document based features.
+This file contains the code to extract these features from the data. Also there are command line options to specify
+which features you want to extract. To vectorize the features and with what options you want to vectorize them, you
+should use the vectorize.py file.
+"""
+
 HUGGINGFACE_DEVICE = "mps"  # should be changed when running on a different device
 HUGGINGFACE_SENTIMENT_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest"
 HUGGINGFACE_SIMILARITY_MODEL = "sentence-transformers/all-MiniLM-L6-v2"

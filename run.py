@@ -2,8 +2,28 @@ import itertools
 from typing import Literal
 import requests
 
-from model import Options, Task, run
-from utilities import Features
+from model import run
+from utilities import Features, Task, Options
+
+"""
+To test the different set of features, classifiers and neural network options, we will run this file that will produce
+scores for all different combinations. The results will be saved in a CSV file. Here you can easily filter the data 
+based on features and filter them on scores.
+"""
+
+TOPIC = "gurzQZYSKDVkpMej1BR7IN6sKMPPzd36BDRzKBYJWtH4zP8Mpldt1I4AWWRHA"
+TASK = Task.A
+HEAD = None
+NOTIFY = True
+FEATURES = [
+    Features.TENSE,
+    Features.VOICE,
+    Features.PRONOUNS,
+    Features.NAMED_ENTITIES,
+    Features.SENTIMENT,
+    Features.POS_TAGS,
+    Features.DOMAIN
+]
 
 
 def create_vector_dir_name(task: Task, set_name: Literal["train", "dev"]) -> str:
@@ -26,7 +46,7 @@ def create_options(
         data_dir="data",
         task=task,
         model_dir=f"models/{task}/{model}",
-        results_file=f"results.csv",
+        results_file=f"results_{task.value}.csv",
     )
 
     match model:
@@ -43,20 +63,11 @@ def create_options(
 
 
 def create_feature_combinations() -> list[list[Features]]:
-    features = [
-        Features.TENSE,
-        Features.VOICE,
-        Features.PRONOUNS,
-        Features.NAMED_ENTITIES,
-        Features.SENTIMENT,
-        Features.POS_TAGS,
-        Features.DOMAIN
-    ]
     status = [True, False]
 
     feature_combinations = list(map(
-        lambda x: [features[index] for index, value in enumerate(x) if value],
-        itertools.product(status, repeat=len(features))
+        lambda x: [FEATURES[index] for index, value in enumerate(x) if value],
+        itertools.product(status, repeat=len(FEATURES))
     ))
 
     return feature_combinations
@@ -83,37 +94,29 @@ def create_nn_combinations() -> list[tuple[int, int, float, int, list[Features]]
     return nn_combinations
 
 
+def run_combinations(model: Literal["nn", "traditional"], combinations: list) -> None:
+    if HEAD is not None:
+        combinations = combinations[:HEAD]
+
+    for index, combinations in enumerate(combinations):
+        options = create_options("traditional", TASK, combinations)
+
+        if index % 50 == 0 and NOTIFY:
+            requests.post(
+                f"https://ntfy.sh/{TOPIC}",
+                data=f"Currently running {index + 1}/{len(combinations)} {model} combinations.".encode(
+                    "utf-8"
+                )
+            )
+
+        run(options)
+
+
 def main():
-    topic = "gurzQZYSKDVkpMej1BR7IN6sKMPPzd36BDRzKBYJWtH4zP8Mpldt1I4AWWRHA"
-
     classifier_combinations = create_classifier_combinations()
-    for index, combinations in enumerate(classifier_combinations):
-        options = create_options("traditional", Task.A, combinations)
-
-        if index % 50 == 0:
-            requests.post(
-                f"https://ntfy.sh/{topic}",
-                data=f"Currently running {index + 1}/{len(classifier_combinations)} classifier combinations.".encode(
-                    "utf-8"
-                )
-            )
-
-        run(options)
-
+    run_combinations("traditional", classifier_combinations)
     nn_combinations = create_nn_combinations()
-
-    for index, combinations in enumerate(nn_combinations):
-        options = create_options("nn", Task.A, combinations)
-
-        if index % 50 == 0:
-            requests.post(
-                f"https://ntfy.sh/{topic}",
-                data=f"Currently running {index + 1}/{len(nn_combinations)} nn combinations.".encode(
-                    "utf-8"
-                )
-            )
-
-        run(options)
+    run_combinations("nn", nn_combinations)
 
 
 if __name__ == "__main__":

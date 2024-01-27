@@ -1,14 +1,12 @@
 import argparse
 import csv
-from enum import Enum
-from typing import Literal, Any
 
-import sklearn.preprocessing
 import tensorflow as tf
 import numpy as np
 import os
-from dataclasses import dataclass
 import pandas as pd
+from keras import Sequential
+from keras.src.layers import Dense, Dropout
 from keras.src.utils import to_categorical
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
@@ -16,40 +14,16 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC
 from tqdm.keras import TqdmCallback
-from neural_networks import nn_model
 
-from utilities import Features
+from utilities import Features, Task, Options, load_data, Classifier
+
+"""
+While similar to test.py, this file is used to train a model and save the results to a file (while the test.py file will
+only return the predictions made by the model). You can use the command line to create the model with different options. 
+"""
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 tf.keras.utils.disable_interactive_logging()
-
-
-class Task(Enum):
-    """The tasks that can be trained."""
-
-    A = "A"
-    B = "B"
-    C = "C"
-
-
-@dataclass
-class Options:
-    """Contains the options for training a model."""
-
-    features: list[Features]
-    vectors_training_dir: str
-    vectors_test_dir: str
-    normalize_features: bool
-    data_dir: str
-    task: Task
-    model_dir: str
-    results_file: str
-    model: Literal["nn", "traditional"]
-    model_number: int = None
-    epochs: int = None
-    batch_size: int = None
-    learning_rate: float = None
-    classifier: str = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -160,50 +134,36 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-@dataclass
-class Score:
-    """Contains the scores for a single generator/model."""
-
-    precision: float
-    recall: float
-    accuracy: float
-    f1: float
-
-
-def load_dataframe(options: Options, split: Literal["train", "dev", "test"]) -> pd.DataFrame:
-    """Loads the given dataframe from the given options."""
-    path = os.path.join(
-        options.data_dir,
-        f"Subtask{options.task.value}",
-        f"Subtask{options.task.value}_{split}_monolingual.jsonl"
-    )
-
-    return pd.read_json(path, lines=True)
-
-
-def get_vectors(features: list[Features], dir: str) -> dict[Features, Any]:
-    """Loads the vectors from the given dataframe."""
-    result = {}
-
-    for feature in features:
-        filename = os.path.join(dir, feature.value, "vectors.npy")
-        vector = np.load(filename)
-        result[feature] = vector
-
-    return result
+def nn_model(model_number: int, classes: int) -> Sequential:
+    """Returns a neural network model."""
+    match model_number:
+        case 1:
+            return Sequential([
+                Dense(64, activation="softmax"),
+                Dropout(0.5),
+                Dense(256, activation="softmax"),
+                Dropout(0.5),
+                Dense(32, activation="softmax"),
+                Dropout(0.5),
+                Dense(classes, activation="sigmoid"),
+            ])
+        case 2:
+            return Sequential([
+                Dense(128, activation="relu"),
+                Dropout(0.5),
+                Dense(512, activation="relu"),
+                Dropout(0.5),
+                Dense(64, activation="relu"),
+                Dropout(0.5),
+                Dense(classes, activation="relu"),
+            ])
 
 
-def create_vector_matrix(vectors: dict[Features, Any]) -> np.ndarray:
-    """Creates a matrix from the given vectors."""
-    return np.concatenate(list(vectors.values()), axis=1)
-
-
-def train_and_run_nn(
+def train_nn(
         options: Options,
         train_vectors: np.ndarray,
         train_labels: pd.Series,
-        test_vectors: np.ndarray,
-) -> list[str]:
+) -> Sequential:
     """Trains a neural network."""
     classes = 2 if options.task == Task.A else 6
     model = nn_model(options.model_number, classes)
@@ -227,18 +187,14 @@ def train_and_run_nn(
         ]
     )
 
-    predictions = model.predict(test_vectors)
-    predictions = np.argmax(predictions, axis=1)
-
-    return predictions
+    return model
 
 
-def train_and_run_classifier(
+def train_classifier(
         options: Options,
         train_vectors: np.ndarray,
         train_labels: pd.Series,
-        test_vectors: np.ndarray,
-) -> list[str]:
+) -> Classifier:
     """Trains a classifier."""
 
     classifier = None
@@ -249,12 +205,20 @@ def train_and_run_classifier(
         case "logistic-regression":
             classifier = LogisticRegression()
         case "knn":
-            classifier = KNeighborsClassifier()
+            neighbors = 5 if options.task == Task.A else 15
+            classifier = KNeighborsClassifier(n_neighbors=neighbors)
         case "naive-bayes":
             classifier = GaussianNB()
 
     classifier.fit(train_vectors, train_labels)
-    predictions = classifier.predict(test_vectors)
+
+    return classifier
+
+
+def predict_nn(model: Sequential, test_vectors: np.ndarray) -> list[int]:
+    """Predicts the labels for the given vectors."""
+    predictions = model.predict(test_vectors)
+    predictions = np.argmax(predictions, axis=1)
     return predictions
 
 
@@ -263,13 +227,15 @@ def train_and_run_model(
         train_vectors: np.ndarray,
         train_labels: pd.Series,
         test_vectors: np.ndarray,
-) -> list[str]:
+) -> list[int]:
     """Trains the model."""
     match options.model:
         case "nn":
-            return train_and_run_nn(options, train_vectors, train_labels, test_vectors)
+            model = train_nn(options, train_vectors, train_labels)
+            return predict_nn(model, test_vectors)
         case "traditional":
-            return train_and_run_classifier(options, train_vectors, train_labels, test_vectors)
+            classifier = train_classifier(options, train_vectors, train_labels)
+            return classifier.predict(test_vectors)
 
 
 def save_results(options: Options, scores: list[float], accuracy: float) -> None:
@@ -316,24 +282,13 @@ def save_results(options: Options, scores: list[float], accuracy: float) -> None
 
 
 def run(options: Options):
-    train_df = load_dataframe(options, "train")
-    test_df = load_dataframe(options, "dev")
+    data = load_data(options)
 
-    train_vectors = get_vectors(options.features, options.vectors_training_dir)
-    test_vectors = get_vectors(options.features, options.vectors_test_dir)
-
-    train_matrix = create_vector_matrix(train_vectors)
-    test_matrix = create_vector_matrix(test_vectors)
-
-    if options.normalize_features:
-        train_matrix = sklearn.preprocessing.normalize(train_matrix, axis=1, norm="l1")
-        test_matrix = sklearn.preprocessing.normalize(test_matrix, axis=1, norm="l1")
-
-    predictions = train_and_run_model(options, train_matrix, train_df["label"], test_matrix)
+    predictions = train_and_run_model(options, data.train_matrix, data.train_df["label"], data.test_matrix)
     scores = precision_recall_fscore_support(
-        test_df["label"], predictions, average="binary" if options.task == Task.A else "macro"
+        data.test_df["label"], predictions, average="binary" if options.task == Task.A else "macro"
     )
-    accuracy = accuracy_score(test_df["label"], predictions)
+    accuracy = accuracy_score(data.test_df["label"], predictions)
 
     save_results(options, scores, accuracy)
 
