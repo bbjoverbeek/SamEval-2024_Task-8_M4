@@ -11,3 +11,4 @@ class Features(Enum):
     DEP_TAGS = "dep-tags"
     SENTENCES = "sentences"
     DOMAIN = "domain"
+    SENTENCE_SIMILARITY = "sentence-similarity"

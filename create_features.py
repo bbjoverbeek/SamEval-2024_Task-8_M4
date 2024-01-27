@@ -3,6 +3,9 @@ from typing import Any, Optional
 import spacy
 import argparse
 import json
+
+from sentence_transformers import SentenceTransformer
+import sentence_transformers
 from spacy.matcher import Matcher
 from spacy.tokens import Doc
 from transformers import pipeline, Pipeline
@@ -11,8 +14,8 @@ import os
 from utilities import Features
 
 HUGGINGFACE_DEVICE = "mps"  # should be changed when running on a different device
-HUGGINGFACE_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest"
-
+HUGGINGFACE_SENTIMENT_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest"
+HUGGINGFACE_SIMILARITY_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 SPACY_FEATURES = {
     Features.PRONOUNS,
@@ -108,6 +111,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
 
     parser.add_argument("--input", type=str, required=True, help="The name of the input file")
 
+    parser.add_argument("--sentences", action="store_true", help="Whether to tokenize the text")
+
     parser.add_argument(
         "--output", type=str, required=True, help="The name of the output directory"
     )
@@ -134,11 +139,11 @@ def get_matches(doc: Doc, matcher: Matcher, patterns: dict[str, list]) -> list[s
 
 
 def create_spacy_features(
-    item: dict,
-    features: list[Features],
-    data_features: dict[Features, dict[int, Any]],
-    tense_matcher: Matcher,
-    voice_matcher: Matcher,
+        item: dict,
+        features: list[Features],
+        data_features: dict[Features, dict[int, Any]],
+        tense_matcher: Matcher,
+        voice_matcher: Matcher,
 ) -> None:
     """
     Given a list of features, extract the features from the text and add them to the data_features.
@@ -171,18 +176,27 @@ def create_spacy_features(
 
 
 def create_features(
-    features: list[Features],
-    data: list[dict],
-    voice_matcher: Matcher,
-    tense_matcher: Matcher,
-    sentiment_pipeline: Optional[Pipeline],
+        features: list[Features],
+        data: list[dict],
+        voice_matcher: Matcher,
+        tense_matcher: Matcher,
+        sentiment_pipeline: Optional[Pipeline],
+        similarity_model: Optional[SentenceTransformer],
+        tokenized_sentences: Optional[dict[int, Any]] = None,
 ) -> dict[Features, dict[int, Any]]:
     # the sentiment feature needs to have individual sentences, which are tokenized using spacy
-    if Features.SENTIMENT in features and not Features.SENTENCES in features:
+    if (
+            (Features.SENTIMENT in features or Features.SENTENCE_SIMILARITY)
+            and Features.SENTENCES not in features
+            and tokenized_sentences is None
+    ):
         features.append(Features.SENTENCES)
 
     # for each feature create a dict with the id as key and the features as value
     data_features: dict[Features, dict[int, Any]] = {feature: {} for feature in features}
+
+    if tokenized_sentences:
+        data_features[Features.SENTENCES] = tokenized_sentences
 
     if len(SPACY_FEATURES.intersection(features)) != 0:
         for item in tqdm(data, desc="Extracting spacy features"):
@@ -193,12 +207,37 @@ def create_features(
 
     if Features.SENTIMENT in features and sentiment_pipeline is not None:
         for id, sentences in tqdm(
-            data_features[Features.SENTENCES].items(),
-            desc="Extracting huggingface sentiment feature",
+                data_features[Features.SENTENCES].items(),
+                desc="Extracting huggingface sentiment feature",
         ):
             data_features[Features.SENTIMENT][id] = [
                 result["label"] for result in sentiment_pipeline(sentences)
             ]
+
+    if Features.SENTENCE_SIMILARITY in features and similarity_model is not None:
+        for (id, sentences) in tqdm(
+                data_features[Features.SENTENCES].items(),
+                desc="Extracting huggingface sentence similarity feature",
+        ):
+            similarities: list[tuple[float, float]] = []
+            embeddings = []
+
+            for sentence in sentences:
+                similarity = similarity_model.encode(sentence, convert_to_tensor=True)
+                embeddings.append(similarity)
+
+            for index, embedding in enumerate(embeddings):
+                similarity_previous = sentence_transformers.util.pytorch_cos_sim(
+                    embedding, embeddings[index - 1]
+                ).item() if index > 0 else 0
+
+                similarity_next = sentence_transformers.util.pytorch_cos_sim(
+                    embedding, embeddings[index + 1]
+                ).item() if index < len(embeddings) - 1 else 0
+
+                similarities.append((similarity_previous, similarity_next))
+
+            data_features[Features.SENTENCE_SIMILARITY][id] = similarities
 
     return data_features
 
@@ -228,32 +267,47 @@ def main():
     parser = add_arguments(parser)
     arguments = parser.parse_args()
 
+    features_args = [Features(feature) for feature in arguments.features]
+
     sentiment_pipeline = (
         pipeline(
             "sentiment-analysis",
-            model=HUGGINGFACE_MODEL,
+            model=HUGGINGFACE_SENTIMENT_MODEL,
             device=HUGGINGFACE_DEVICE,
             truncation=True,
             max_length=512,
         )
-        if Features.SENTIMENT in arguments.features
+        if Features.SENTIMENT in features_args
         else None
     )
+
+    similarity_model = SentenceTransformer(
+        HUGGINGFACE_SIMILARITY_MODEL, device=HUGGINGFACE_DEVICE
+    ) if Features.SENTENCE_SIMILARITY in features_args \
+        else None
 
     tense_matcher, voice_matcher = setup_matchers()
 
     with open(arguments.input, "r") as f:
         data = [json.loads(line) for line in f]
-
         if arguments.head is not None:
             data = data[: arguments.head]
 
-    features_args = [Features(feature) for feature in arguments.features]
+    sentences = None
+    if arguments.sentences:
+        filename = arguments.output + "/sentences.json"
+        with open(filename, "r") as f:
+            sentences = json.load(f)
+            if arguments.head is not None:
+                sentences = dict(list(sentences.items())[: arguments.head])
+
     features = create_features(
-        features_args, data, voice_matcher, tense_matcher, sentiment_pipeline
+        features_args, data, voice_matcher, tense_matcher, sentiment_pipeline, similarity_model, sentences
     )
 
     for feature, values in features.items():
+        if feature == Features.SENTENCES and sentences is not None:
+            continue
         filename = f"{arguments.output}/{feature.value}.json"
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         with open(filename, "w") as f:
