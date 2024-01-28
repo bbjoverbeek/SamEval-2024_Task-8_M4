@@ -16,7 +16,7 @@ Classes and functions that are used by multiple files in the project are defined
 """
 
 
-class Features(Enum):
+class Feature(Enum):
     TENSE = "tense"
     VOICE = "voice"
     PRONOUNS = "pronouns"
@@ -30,21 +30,21 @@ class Features(Enum):
 
 
 class Task(Enum):
-    """The tasks that can be trained."""
+    """The tasks that can be trained for."""
 
     A = "A"
     B = "B"
     C = "C"
 
 
-Classifier = LinearSVC | LogisticRegression | KNeighborsClassifier | GaussianNB
+Classifier = LinearSVC | KNeighborsClassifier | GaussianNB
 
 
 @dataclass
 class Options:
     """Contains the options for training a model."""
 
-    features: list[Features]
+    features: list[Feature]
     vectors_training_dir: str
     normalize_features: bool
     data_dir: str
@@ -84,7 +84,7 @@ def load_dataframe(options: Options, split: Literal["train", "dev", "test"]) -> 
     return pd.read_json(path, lines=True)
 
 
-def get_vectors(features: list[Features], dir_name: str) -> dict[Features, Any]:
+def get_vectors(features: list[Feature], dir_name: str) -> dict[Feature, Any]:
     """Loads the vectors from the given dataframe."""
     result = {}
 
@@ -96,7 +96,7 @@ def get_vectors(features: list[Features], dir_name: str) -> dict[Features, Any]:
     return result
 
 
-def create_vector_matrix(vectors: dict[Features, Any]) -> np.ndarray:
+def create_vector_matrix(vectors: dict[Feature, Any]) -> np.ndarray:
     """Creates a matrix from the given vectors."""
     return np.concatenate(list(vectors.values()), axis=1)
 

@@ -15,7 +15,7 @@ from tqdm import tqdm
 import numpy as np
 import os
 import pickle
-from utilities import Features
+from utilities import Feature
 import tensorflow
 from sklearn.svm import LinearSVC
 
@@ -109,7 +109,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--features",
         nargs="+",
-        choices=[feature.value for feature in Features],
+        choices=[feature.value for feature in Feature],
         help="The features that are used to train the model",
     )
 
@@ -185,17 +185,17 @@ def create_model() -> Pipeline:
 
 
 FEATURES_WITH_VECTORIZER = {
-    Features.TENSE,
-    Features.SENTIMENT,
-    Features.VOICE,
-    Features.DEP_TAGS,
-    Features.POS_TAGS,
+    Feature.TENSE,
+    Feature.SENTIMENT,
+    Feature.VOICE,
+    Feature.DEP_TAGS,
+    Feature.POS_TAGS,
 }
 
 
 def get_training_vectors(
-    features: list[Features], input: str
-) -> dict[Features, dict[Literal["vectorizer", "vectors"], Any]]:
+    features: list[Feature], input: str
+) -> dict[Feature, dict[Literal["vectorizer", "vectors"], Any]]:
     """Load the training vectors and the vectorizers from the given input directory."""
     result = {}
 
@@ -216,7 +216,7 @@ def get_training_vectors(
     return result
 
 
-def get_test_vectors(features: list[Features], input: str) -> dict[Features, Any]:
+def get_test_vectors(features: list[Feature], input: str) -> dict[Feature, Any]:
     result = {}
 
     for feature in features:
@@ -230,7 +230,7 @@ def get_test_vectors(features: list[Features], input: str) -> dict[Features, Any
 def evaluate_model(
     train_df: pd.DataFrame,
     test_df: pd.DataFrame,
-    features: list[Features],
+    features: list[Feature],
     training_vectors_dir: str,
     test_vectors_dir: str,
     train_domain: Literal[Domain, None] = None,
@@ -340,7 +340,7 @@ def main():
     """Train and evaluate a model on different splits of the data."""
 
     args = parse_args()
-    features = [Features(feature) for feature in args.features]
+    features = [Feature(feature) for feature in args.features]
 
     if args.experiment_type == "cross-domain":
         # select all domains or just one based on command line arguments

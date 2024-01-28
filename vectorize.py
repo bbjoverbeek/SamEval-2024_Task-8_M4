@@ -3,7 +3,7 @@ import argparse
 import statistics
 
 from tqdm import tqdm
-from utilities import Features
+from utilities import Feature
 from typing import Any, Literal
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from dataclasses import dataclass
@@ -18,22 +18,22 @@ be trained on them. This file contains the code to vectorize the data.
 """
 
 TOKEN_BASED_FEATURES = {
-    Features.DEP_TAGS,
-    Features.POS_TAGS,
+    Feature.DEP_TAGS,
+    Feature.POS_TAGS,
 }
 
 SENTENCE_BASED_FEATURES = {
-    Features.SENTIMENT,
-    Features.TENSE,
-    Features.VOICE,
+    Feature.SENTIMENT,
+    Feature.TENSE,
+    Feature.VOICE,
 }
 
 FEATURES_WITH_VECTORIZER = {
-    Features.DEP_TAGS,
-    Features.POS_TAGS,
-    Features.SENTIMENT,
-    Features.TENSE,
-    Features.VOICE,
+    Feature.DEP_TAGS,
+    Feature.POS_TAGS,
+    Feature.SENTIMENT,
+    Feature.TENSE,
+    Feature.VOICE,
 }
 
 DOMAINS = {
@@ -57,7 +57,7 @@ class VectorizeOptions:
     sentence_N_grams: int
     sentence_vectorizer: Vectorizer
     save_vectors: bool
-    vectorizers: dict[Features, CountVectorizer | TfidfVectorizer]
+    vectorizers: dict[Feature, CountVectorizer | TfidfVectorizer]
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -70,7 +70,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument(
         "--features",
         nargs="+",
-        choices=[feature.value for feature in Features],
+        choices=[feature.value for feature in Feature],
         help="The features to extract from the data. Each feature will get a seperate file, where \
         each item is connected to the original data by the id.",
     )
@@ -118,10 +118,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
 
 
 def vectorize_token_based_features(
-        data: dict[int, Any], feature: Features, options: VectorizeOptions
+        data: dict[int, Any], feature: Feature, options: VectorizeOptions
 ) -> dict[Literal["vectorizer", "vectors"], Any]:
     ngram_range = (options.token_N_grams, options.token_N_grams)
-    min_df = 0.25 if (feature == Features.POS_TAGS or feature == Features.DEP_TAGS) else 5
+    min_df = 0.25 if (feature == Feature.POS_TAGS or feature == Feature.DEP_TAGS) else 5
 
     values = [" ".join(item) for item in data.values()]
 
@@ -140,7 +140,7 @@ def vectorize_token_based_features(
 
 
 def vectorize_sentence_based_features(
-        data: dict[int, Any], feature: Features, options: VectorizeOptions
+        data: dict[int, Any], feature: Feature, options: VectorizeOptions
 ) -> dict[Literal["vectorizer", "vectors"], Any]:
     ngram_range = (options.sentence_N_grams, options.sentence_N_grams)
 
@@ -199,25 +199,25 @@ def vectorize_sentence_similarity(
 
 
 def vectorize_data(
-        data: dict[int, Any], feature: Features, options: VectorizeOptions
+        data: dict[int, Any], feature: Feature, options: VectorizeOptions
 ) -> dict[Literal["vectorizer", "vectors"], Any]:
     match feature:
         case feature if feature in TOKEN_BASED_FEATURES:
             return vectorize_token_based_features(data, feature, options)
         case feature if feature in SENTENCE_BASED_FEATURES:
             return vectorize_sentence_based_features(data, feature, options)
-        case Features.PRONOUNS | Features.NAMED_ENTITIES:
+        case Feature.PRONOUNS | Feature.NAMED_ENTITIES:
             return {"vectors": np.array([[item] for item in data.values()])}
-        case Features.DOMAIN:
+        case Feature.DOMAIN:
             return {"vectors": np.array([[DOMAINS[item]] for item in data.values()])}
-        case Features.SENTENCE_SIMILARITY:
+        case Feature.SENTENCE_SIMILARITY:
             return vectorize_sentence_similarity(data, options)
         case default:
             return dict()
 
 
 def save_vector_data(
-        result: dict[Literal["vectorizer", "vectors"], Any], output: str, feature: Features
+        result: dict[Literal["vectorizer", "vectors"], Any], output: str, feature: Feature
 ):
     dirname = os.path.join(output, feature.value)
     os.makedirs(dirname, exist_ok=True)
@@ -236,7 +236,7 @@ def main():
     parser = add_arguments(parser)
     arguments = parser.parse_args()
 
-    features = [Features(feature) for feature in arguments.features]
+    features = [Feature(feature) for feature in arguments.features]
     vectorizers = {}
 
     if arguments.vectorizer:

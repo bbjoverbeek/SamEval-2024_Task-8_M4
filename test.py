@@ -1,5 +1,5 @@
 from model import train_and_run_model
-from utilities import Features, Task, Options, load_data
+from utilities import Feature, Task, Options, load_data
 import pandas as pd
 
 """
@@ -9,12 +9,12 @@ shared task.
 
 OPTIONS = Options(
     features=[
-        Features.TENSE,
-        Features.VOICE,
-        Features.PRONOUNS,
-        Features.NAMED_ENTITIES,
-        Features.POS_TAGS,
-        Features.DOMAIN
+        Feature.TENSE,
+        Feature.VOICE,
+        Feature.PRONOUNS,
+        Feature.NAMED_ENTITIES,
+        Feature.POS_TAGS,
+        Feature.DOMAIN
     ],
     model="nn",
     vectors_training_dir="vectors/SubtaskA/train_monolingual",

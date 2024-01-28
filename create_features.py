@@ -11,7 +11,7 @@ from spacy.tokens import Doc
 from transformers import pipeline, Pipeline
 from tqdm import tqdm
 import os
-from utilities import Features
+from utilities import Feature
 
 """
 From the data given by the shared task, we can extract multiple features: token, sentence and document based features.
@@ -25,18 +25,18 @@ HUGGINGFACE_SENTIMENT_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest"
 HUGGINGFACE_SIMILARITY_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 SPACY_FEATURES = {
-    Features.PRONOUNS,
-    Features.NAMED_ENTITIES,
-    Features.POS_TAGS,
-    Features.DEP_TAGS,
-    Features.SENTENCES,
-    Features.TENSE,
-    Features.VOICE,
+    Feature.PRONOUNS,
+    Feature.NAMED_ENTITIES,
+    Feature.POS_TAGS,
+    Feature.DEP_TAGS,
+    Feature.SENTENCES,
+    Feature.TENSE,
+    Feature.VOICE,
 }
 
-HUGGINGFACE_FEATURES = {Features.SENTIMENT}
+HUGGINGFACE_FEATURES = {Feature.SENTIMENT}
 
-DATA_FEATURES = {Features.DOMAIN}
+DATA_FEATURES = {Feature.DOMAIN}
 
 nlp = spacy.load("en_core_web_sm")
 
@@ -111,7 +111,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument(
         "--features",
         nargs="+",
-        choices=[feature.value for feature in Features],
+        choices=[feature.value for feature in Feature],
         help="The features to extract from the data. Each feature will get a seperate file, where \
         each item is connected to the original data by the id.",
     )
@@ -147,8 +147,8 @@ def get_matches(doc: Doc, matcher: Matcher, patterns: dict[str, list]) -> list[s
 
 def create_spacy_features(
         item: dict,
-        features: list[Features],
-        data_features: dict[Features, dict[int, Any]],
+        features: list[Feature],
+        data_features: dict[Feature, dict[int, Any]],
         tense_matcher: Matcher,
         voice_matcher: Matcher,
 ) -> None:
@@ -162,68 +162,68 @@ def create_spacy_features(
     doc = nlp(item["text"])
     id = item["id"]
 
-    if Features.TENSE in features:
-        data_features[Features.TENSE][id] = get_matches(doc, tense_matcher, TENSE_PATTERNS)
+    if Feature.TENSE in features:
+        data_features[Feature.TENSE][id] = get_matches(doc, tense_matcher, TENSE_PATTERNS)
 
-    if Features.VOICE in features:
-        data_features[Features.VOICE][id] = get_matches(doc, voice_matcher, VOICE_PATTERNS)
+    if Feature.VOICE in features:
+        data_features[Feature.VOICE][id] = get_matches(doc, voice_matcher, VOICE_PATTERNS)
 
     for feature in features:
         match feature:
-            case Features.PRONOUNS:
-                data_features[Features.PRONOUNS][id] = create_pronouns_feature(doc)
-            case Features.NAMED_ENTITIES:
-                data_features[Features.NAMED_ENTITIES][id] = create_named_entities_feature(doc)
-            case Features.POS_TAGS:
-                data_features[Features.POS_TAGS][id] = [token.pos_ for token in doc]
-            case Features.DEP_TAGS:
-                data_features[Features.DEP_TAGS][id] = [token.dep_ for token in doc]
-            case Features.SENTENCES:
-                data_features[Features.SENTENCES][id] = [str(sent) for sent in doc.sents]
+            case Feature.PRONOUNS:
+                data_features[Feature.PRONOUNS][id] = create_pronouns_feature(doc)
+            case Feature.NAMED_ENTITIES:
+                data_features[Feature.NAMED_ENTITIES][id] = create_named_entities_feature(doc)
+            case Feature.POS_TAGS:
+                data_features[Feature.POS_TAGS][id] = [token.pos_ for token in doc]
+            case Feature.DEP_TAGS:
+                data_features[Feature.DEP_TAGS][id] = [token.dep_ for token in doc]
+            case Feature.SENTENCES:
+                data_features[Feature.SENTENCES][id] = [str(sent) for sent in doc.sents]
 
 
 def create_features(
-        features: list[Features],
+        features: list[Feature],
         data: list[dict],
         voice_matcher: Matcher,
         tense_matcher: Matcher,
         sentiment_pipeline: Optional[Pipeline],
         similarity_model: Optional[SentenceTransformer],
         tokenized_sentences: Optional[dict[int, Any]] = None,
-) -> dict[Features, dict[int, Any]]:
+) -> dict[Feature, dict[int, Any]]:
     # the sentiment feature needs to have individual sentences, which are tokenized using spacy
     if (
-            (Features.SENTIMENT in features or Features.SENTENCE_SIMILARITY)
-            and Features.SENTENCES not in features
+            (Feature.SENTIMENT in features or Feature.SENTENCE_SIMILARITY)
+            and Feature.SENTENCES not in features
             and tokenized_sentences is None
     ):
-        features.append(Features.SENTENCES)
+        features.append(Feature.SENTENCES)
 
     # for each feature create a dict with the id as key and the features as value
-    data_features: dict[Features, dict[int, Any]] = {feature: {} for feature in features}
+    data_features: dict[Feature, dict[int, Any]] = {feature: {} for feature in features}
 
     if tokenized_sentences:
-        data_features[Features.SENTENCES] = tokenized_sentences
+        data_features[Feature.SENTENCES] = tokenized_sentences
 
     if len(SPACY_FEATURES.intersection(features)) != 0:
         for item in tqdm(data, desc="Extracting spacy features"):
             create_spacy_features(item, features, data_features, tense_matcher, voice_matcher)
 
-    if Features.DOMAIN in features:
-        data_features[Features.DOMAIN] = {item["id"]: item["source"] for item in data}
+    if Feature.DOMAIN in features:
+        data_features[Feature.DOMAIN] = {item["id"]: item["source"] for item in data}
 
-    if Features.SENTIMENT in features and sentiment_pipeline is not None:
+    if Feature.SENTIMENT in features and sentiment_pipeline is not None:
         for id, sentences in tqdm(
-                data_features[Features.SENTENCES].items(),
+                data_features[Feature.SENTENCES].items(),
                 desc="Extracting huggingface sentiment feature",
         ):
-            data_features[Features.SENTIMENT][id] = [
+            data_features[Feature.SENTIMENT][id] = [
                 result["label"] for result in sentiment_pipeline(sentences)
             ]
 
-    if Features.SENTENCE_SIMILARITY in features and similarity_model is not None:
+    if Feature.SENTENCE_SIMILARITY in features and similarity_model is not None:
         for (id, sentences) in tqdm(
-                data_features[Features.SENTENCES].items(),
+                data_features[Feature.SENTENCES].items(),
                 desc="Extracting huggingface sentence similarity feature",
         ):
             similarities: list[tuple[float, float]] = []
@@ -244,7 +244,7 @@ def create_features(
 
                 similarities.append((similarity_previous, similarity_next))
 
-            data_features[Features.SENTENCE_SIMILARITY][id] = similarities
+            data_features[Feature.SENTENCE_SIMILARITY][id] = similarities
 
     return data_features
 
@@ -274,7 +274,7 @@ def main():
     parser = add_arguments(parser)
     arguments = parser.parse_args()
 
-    features_args = [Features(feature) for feature in arguments.features]
+    features_args = [Feature(feature) for feature in arguments.features]
 
     sentiment_pipeline = (
         pipeline(
@@ -284,13 +284,13 @@ def main():
             truncation=True,
             max_length=512,
         )
-        if Features.SENTIMENT in features_args
+        if Feature.SENTIMENT in features_args
         else None
     )
 
     similarity_model = SentenceTransformer(
         HUGGINGFACE_SIMILARITY_MODEL, device=HUGGINGFACE_DEVICE
-    ) if Features.SENTENCE_SIMILARITY in features_args \
+    ) if Feature.SENTENCE_SIMILARITY in features_args \
         else None
 
     tense_matcher, voice_matcher = setup_matchers()
@@ -313,7 +313,7 @@ def main():
     )
 
     for feature, values in features.items():
-        if feature == Features.SENTENCES and sentences is not None:
+        if feature == Feature.SENTENCES and sentences is not None:
             continue
         filename = f"{arguments.output}/{feature.value}.json"
         os.makedirs(os.path.dirname(filename), exist_ok=True)

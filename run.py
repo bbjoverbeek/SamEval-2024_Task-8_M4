@@ -3,7 +3,7 @@ from typing import Literal
 import requests
 
 from model import run
-from utilities import Features, Task, Options
+from utilities import Feature, Task, Options
 
 """
 To test the different set of features, classifiers and neural network options, we will run this file that will produce
@@ -16,13 +16,13 @@ TASK = Task.A
 HEAD = None
 NOTIFY = True
 FEATURES = [
-    Features.TENSE,
-    Features.VOICE,
-    Features.PRONOUNS,
-    Features.NAMED_ENTITIES,
-    Features.SENTIMENT,
-    Features.POS_TAGS,
-    Features.DOMAIN
+    Feature.TENSE,
+    Feature.VOICE,
+    Feature.PRONOUNS,
+    Feature.NAMED_ENTITIES,
+    Feature.SENTIMENT,
+    Feature.POS_TAGS,
+    Feature.DOMAIN
 ]
 
 
@@ -33,7 +33,7 @@ def create_vector_dir_name(task: Task, set_name: Literal["train", "dev"]) -> str
 def create_options(
         model: Literal["nn", "traditional"],
         task: Task,
-        other_options: tuple[int, int, float, int, list[Features]] | tuple[str, list[Features]]
+        other_options: tuple[int, int, float, int, list[Feature]] | tuple[str, list[Feature]]
 ) -> Options:
     features = other_options[-1]
 
@@ -62,7 +62,7 @@ def create_options(
     return options
 
 
-def create_feature_combinations() -> list[list[Features]]:
+def create_feature_combinations() -> list[list[Feature]]:
     status = [True, False]
 
     feature_combinations = list(map(
@@ -73,7 +73,7 @@ def create_feature_combinations() -> list[list[Features]]:
     return feature_combinations
 
 
-def create_classifier_combinations() -> list[tuple[str, list[Features]]]:
+def create_classifier_combinations() -> list[tuple[str, list[Feature]]]:
     classifiers = ["svm", "knn", "naive-bayes"]
     feature_combinations = create_feature_combinations()
 
@@ -82,7 +82,7 @@ def create_classifier_combinations() -> list[tuple[str, list[Features]]]:
     return classifier_combinations
 
 
-def create_nn_combinations() -> list[tuple[int, int, float, int, list[Features]]]:
+def create_nn_combinations() -> list[tuple[int, int, float, int, list[Feature]]]:
     epochs = [4, 8, 16, 32]
     batch_sizes = [8, 16, 32, 64]
     learning_rates = [0.0005, 0.001, 0.005]

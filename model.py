@@ -15,7 +15,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC
 from tqdm.keras import TqdmCallback
 
-from utilities import Features, Task, Options, load_data, Classifier
+from utilities import Feature, Task, Options, load_data, Classifier
 
 """
 While similar to test.py, this file is used to train a model and save the results to a file (while the test.py file will
@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--features",
         nargs="+",
-        choices=[feature.value for feature in Features],
+        choices=[feature.value for feature in Feature],
         help="The features that are used to train the model",
         required=True,
     )
@@ -126,7 +126,7 @@ def parse_args() -> argparse.Namespace:
 
     classifier_parser.add_argument(
         "--classifier",
-        choices=["svm", "logistic-regression", "knn", "naive-bayes"],
+        choices=["svm", "knn", "naive-bayes"],
         help="The classifier to train.",
         default="svm",
     )
@@ -202,8 +202,6 @@ def train_classifier(
     match options.classifier:
         case "svm":
             classifier = LinearSVC()
-        case "logistic-regression":
-            classifier = LogisticRegression()
         case "knn":
             neighbors = 5 if options.task == Task.A else 15
             classifier = KNeighborsClassifier(n_neighbors=neighbors)
@@ -240,7 +238,7 @@ def train_and_run_model(
 
 def save_results(options: Options, scores: list[float], accuracy: float) -> None:
     exists = os.path.isfile(options.results_file)
-    features = ["+" if feature in options.features else "-" for feature in Features]
+    features = ["+" if feature in options.features else "-" for feature in Feature]
     [precision, recall, f1, _] = scores
 
     normalize_features = "+" if options.normalize_features else "-"
@@ -258,7 +256,7 @@ def save_results(options: Options, scores: list[float], accuracy: float) -> None
     with open(options.results_file, "a") as file:
         if not exists:
             csv_writer = csv.writer(file)
-            header_features = [feature.value for feature in Features]
+            header_features = [feature.value for feature in Feature]
             header = [
                 "model", "classifier", "nn_number", "epochs", "batch-size", "learning-rate",
                 "normalize-features", *header_features, "precision", "recall", "f1", "accuracy"
@@ -297,7 +295,7 @@ def main():
     args = parse_args()
 
     options = Options(
-        features=[Features(feature) for feature in args.features],
+        features=[Feature(feature) for feature in args.features],
         vectors_training_dir=args.vectors_training_dir,
         vectors_test_dir=args.vectors_test_dir,
         normalize_features=args.normalize_features,
