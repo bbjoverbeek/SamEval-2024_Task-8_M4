@@ -8,3 +8,5 @@ scipy~=1.11.4
 spacy~=3.7.2
 requests~=2.31.0
 tensorflow~=2.15.0
+evaluate~=0.4.1
+datasets~=2.16.1
