@@ -40,6 +40,13 @@ class Task(Enum):
 Classifier = LinearSVC | KNeighborsClassifier | GaussianNB
 
 
+class Optimizer(Enum):
+    ADAM = "adam"
+    SGD = "sgd"
+    RMS_PROP = "rmsprop"
+    ADAGRAD = "adagrad"
+
+
 @dataclass
 class Options:
     """Contains the options for training a model."""
@@ -57,6 +64,7 @@ class Options:
     epochs: int = None
     batch_size: int = None
     learning_rate: float = None
+    optimizer: Optimizer = Optimizer.ADAM
     classifier: str = None
 
 

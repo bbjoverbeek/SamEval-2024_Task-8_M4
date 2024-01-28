@@ -5,8 +5,8 @@ import tensorflow as tf
 import numpy as np
 import os
 import pandas as pd
-from keras import Sequential
-from keras.src.layers import Dense, Dropout
+from keras import Sequential, Input
+from keras.src.layers import Dense, Dropout, LayerNormalization, BatchNormalization, SimpleRNN
 from keras.src.utils import to_categorical
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
@@ -15,7 +15,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC
 from tqdm.keras import TqdmCallback
 
-from utilities import Feature, Task, Options, load_data, Classifier
+from utilities import Feature, Task, Options, load_data, Classifier, Optimizer
 
 """
 While similar to test.py, this file is used to train a model and save the results to a file (while the test.py file will
@@ -119,6 +119,14 @@ def parse_args() -> argparse.Namespace:
         help="The learning rate to train the model.",
     )
 
+    nn_parser.add_argument(
+        "--optimizer",
+        type=str,
+        choices=[optimizer.value for optimizer in Optimizer],
+        default=Optimizer.ADAM.value,
+        help="The optimizer to train the model.",
+    )
+
     classifier_parser = model_parser.add_parser(
         "traditional",
         help="Train a classifier.",
@@ -134,11 +142,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def nn_model(model_number: int, classes: int) -> Sequential:
+def nn_model(model_number: int, classes: int, shape: tuple[int, int], batch_size: int) -> Sequential:
     """Returns a neural network model."""
     match model_number:
         case 1:
             return Sequential([
+                Input(shape=shape, batch_size=batch_size),
                 Dense(64, activation="softmax"),
                 Dropout(0.5),
                 Dense(256, activation="softmax"),
@@ -149,6 +158,7 @@ def nn_model(model_number: int, classes: int) -> Sequential:
             ])
         case 2:
             return Sequential([
+                Input(shape=shape, batch_size=batch_size),
                 Dense(128, activation="relu"),
                 Dropout(0.5),
                 Dense(512, activation="relu"),
@@ -157,6 +167,41 @@ def nn_model(model_number: int, classes: int) -> Sequential:
                 Dropout(0.5),
                 Dense(classes, activation="relu"),
             ])
+        case 3:
+            return Sequential([
+                Input(shape=shape, batch_size=batch_size),
+                Dense(256, activation="relu"),
+                Dropout(0.5),
+                Dense(1024, activation="relu"),
+                Dropout(0.5),
+                Dense(128, activation="relu"),
+                Dropout(0.5),
+                Dense(classes, activation="relu"),
+            ])
+        case 4:
+            return Sequential([
+                Input(shape=shape, batch_size=batch_size),
+                Dense(128, activation="relu"),
+                Dropout(0.5),
+                Dense(512, activation="relu"),
+                Dropout(0.5),
+                Dense(64, activation="relu"),
+                Dropout(0.5),
+                Dense(classes, activation="sigmoid"),
+            ])
+
+
+def nn_optimizer(optimizer: Optimizer, learning_rate: float) -> tf.keras.optimizers.Optimizer:
+    print(optimizer)
+    match optimizer:
+        case Optimizer.ADAM:
+            return tf.keras.optimizers.Adam(learning_rate=learning_rate)
+        case Optimizer.SGD:
+            return tf.keras.optimizers.SGD(learning_rate=learning_rate)
+        case Optimizer.RMS_PROP:
+            return tf.keras.optimizers.RMSprop(learning_rate=learning_rate)
+        case Optimizer.ADAGRAD:
+            return tf.keras.optimizers.Adagrad(learning_rate=learning_rate)
 
 
 def train_nn(
@@ -166,25 +211,22 @@ def train_nn(
 ) -> Sequential:
     """Trains a neural network."""
     classes = 2 if options.task == Task.A else 6
-    model = nn_model(options.model_number, classes)
+    shape = (None, train_vectors.shape[1])
+    model = nn_model(options.model_number, classes, shape, options.batch_size)
 
     model.compile(
         loss="binary_crossentropy",
-        optimizer=tf.keras.optimizers.Adam(learning_rate=options.learning_rate),
+        optimizer=nn_optimizer(options.optimizer, options.learning_rate),
         metrics=["accuracy"],
     )
 
-    y_labels = to_categorical(train_labels, num_classes=classes)
-
     model.fit(
         train_vectors,
-        y_labels,
+        to_categorical(train_labels, num_classes=classes),
         epochs=options.epochs,
         batch_size=options.batch_size,
         verbose=0,
-        callbacks=[
-            TqdmCallback(verbose=2),
-        ]
+        callbacks=[TqdmCallback(verbose=2), ]
     )
 
     return model
@@ -249,7 +291,8 @@ def save_results(options: Options, scores: list[float], accuracy: float) -> None
             options.model_number,
             options.epochs,
             options.batch_size,
-            options.learning_rate
+            options.learning_rate,
+            options.optimizer.value
         ]
     ]
 
@@ -258,7 +301,7 @@ def save_results(options: Options, scores: list[float], accuracy: float) -> None
             csv_writer = csv.writer(file)
             header_features = [feature.value for feature in Feature]
             header = [
-                "model", "classifier", "nn_number", "epochs", "batch-size", "learning-rate",
+                "model", "classifier", "nn_number", "epochs", "batch-size", "learning-rate", "optimizer",
                 "normalize-features", *header_features, "precision", "recall", "f1", "accuracy"
             ]
             csv_writer.writerow(header)
@@ -311,6 +354,7 @@ def main():
         options.epochs = args.epochs
         options.batch_size = args.batch_size
         options.learning_rate = args.learning_rate
+        options.optimizer = Optimizer(args.optimizer)
     else:
         options.classifier = args.classifier
 

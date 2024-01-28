@@ -65,11 +65,17 @@ def create_options(
 def create_feature_combinations() -> list[list[Feature]]:
     status = [True, False]
 
-    feature_combinations = list(map(
+    feature_combinations = map(
         lambda x: [FEATURES[index] for index, value in enumerate(x) if value],
         itertools.product(status, repeat=len(FEATURES))
-    ))
+    )
 
+    feature_combinations = filter(
+        lambda x: len(x) > 0,
+        feature_combinations
+    )
+
+    feature_combinations = list(feature_combinations)
     return feature_combinations
 
 
@@ -98,8 +104,8 @@ def run_combinations(model: Literal["nn", "traditional"], combinations: list) ->
     if HEAD is not None:
         combinations = combinations[:HEAD]
 
-    for index, combinations in enumerate(combinations):
-        options = create_options("traditional", TASK, combinations)
+    for index, combination in enumerate(combinations):
+        options = create_options(model, TASK, combination)
 
         if index % 50 == 0 and NOTIFY:
             requests.post(

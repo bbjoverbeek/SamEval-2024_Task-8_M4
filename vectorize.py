@@ -2,6 +2,7 @@ import json
 import argparse
 import statistics
 
+from keras.src.utils import pad_sequences
 from tqdm import tqdm
 from utilities import Feature
 from typing import Any, Literal
@@ -160,42 +161,65 @@ def vectorize_sentence_based_features(
     return {"vectorizer": vectorizer, "vectors": vector}
 
 
+# def vectorize_sentence_similarity(
+#         data: dict[int, list[tuple[float, float]]], options: VectorizeOptions
+# ) -> dict[Literal["vectors"], Any]:
+#     values = []
+#
+#     for id, similarities in data.items():
+#         min_prev_similarity = 1
+#         max_prev_similarity = -1
+#         min_next_similarity = 1
+#         max_next_similarity = -1
+#         mean_prev_similarity = []
+#         mean_next_similarity = []
+#         amount_next_similarity_higher = 0
+#
+#         for index, (prev_similarity, next_similarity) in enumerate(similarities):
+#             min_prev_similarity = min(min_prev_similarity, prev_similarity)
+#             max_prev_similarity = max(max_prev_similarity, prev_similarity)
+#             min_next_similarity = min(min_next_similarity, next_similarity)
+#             max_next_similarity = max(max_next_similarity, next_similarity)
+#             mean_prev_similarity.append(prev_similarity)
+#             mean_next_similarity.append(next_similarity)
+#
+#             if next_similarity > prev_similarity:
+#                 amount_next_similarity_higher += 1
+#
+#         values.append([
+#             min_prev_similarity,
+#             max_prev_similarity,
+#             min_next_similarity,
+#             max_next_similarity,
+#             statistics.mean(mean_prev_similarity),
+#             statistics.mean(mean_next_similarity),
+#             amount_next_similarity_higher / len(similarities)
+#         ])
+#
+#     return {"vectors": np.array(values)}
+
+
 def vectorize_sentence_similarity(
         data: dict[int, list[tuple[float, float]]], options: VectorizeOptions
 ) -> dict[Literal["vectors"], Any]:
-    values = []
+    prev_values = []
+    next_values = []
 
-    for id, similarities in data.items():
-        min_prev_similarity = 1
-        max_prev_similarity = -1
-        min_next_similarity = 1
-        max_next_similarity = -1
-        mean_prev_similarity = []
-        mean_next_similarity = []
-        amount_next_similarity_higher = 0
+    for _id, similarities in data.items():
+        prev_similarities = []
+        next_similarities = []
 
         for index, (prev_similarity, next_similarity) in enumerate(similarities):
-            min_prev_similarity = min(min_prev_similarity, prev_similarity)
-            max_prev_similarity = max(max_prev_similarity, prev_similarity)
-            min_next_similarity = min(min_next_similarity, next_similarity)
-            max_next_similarity = max(max_next_similarity, next_similarity)
-            mean_prev_similarity.append(prev_similarity)
-            mean_next_similarity.append(next_similarity)
+            prev_similarities.append(prev_similarity)
+            next_similarities.append(next_similarity)
 
-            if next_similarity > prev_similarity:
-                amount_next_similarity_higher += 1
+        prev_values.append(prev_similarities)
+        next_values.append(next_similarities)
 
-        values.append([
-            min_prev_similarity,
-            max_prev_similarity,
-            min_next_similarity,
-            max_next_similarity,
-            statistics.mean(mean_prev_similarity),
-            statistics.mean(mean_next_similarity),
-            amount_next_similarity_higher / len(similarities)
-        ])
+    prev_values = pad_sequences(prev_values, maxlen=20, dtype="float32", padding="post", truncating="post", value=0.0)
+    next_values = pad_sequences(next_values, maxlen=20, dtype="float32", padding="post", truncating="post", value=0.0)
 
-    return {"vectors": np.array(values)}
+    return {"vectors": np.concatenate([prev_values, next_values], axis=1)}
 
 
 def vectorize_data(
