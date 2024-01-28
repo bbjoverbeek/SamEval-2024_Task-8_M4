@@ -1,10 +1,14 @@
 import itertools
 from typing import Literal
 import requests
+import warnings
+from tqdm import tqdm
 
 from model import Options, Task, run
 from utilities import Features
 
+
+warnings.filterwarnings('ignore')
 
 def create_vector_dir_name(task: Task, set_name: Literal["train", "dev"]) -> str:
     return f"vectors/Subtask{task.value}/{set_name}_monolingual"
@@ -87,10 +91,10 @@ def main():
     topic = "gurzQZYSKDVkpMej1BR7IN6sKMPPzd36BDRzKBYJWtH4zP8Mpldt1I4AWWRHA"
 
     classifier_combinations = create_classifier_combinations()
-    for index, combinations in enumerate(classifier_combinations):
+    for index, combinations in tqdm(enumerate(classifier_combinations), desc="Training Classifiers", total=len(classifier_combinations)):
         options = create_options("traditional", Task.A, combinations)
 
-        if index % 50 == 0:
+        if index % 10 == 0:
             requests.post(
                 f"https://ntfy.sh/{topic}",
                 data=f"Currently running {index + 1}/{len(classifier_combinations)} classifier combinations.".encode(
@@ -102,10 +106,10 @@ def main():
 
     nn_combinations = create_nn_combinations()
 
-    for index, combinations in enumerate(nn_combinations):
+    for index, combinations in tqdm(enumerate(nn_combinations), desc="Training Neural Networks", total=len(nn_combinations)):
         options = create_options("nn", Task.A, combinations)
 
-        if index % 50 == 0:
+        if index % 10 == 0:
             requests.post(
                 f"https://ntfy.sh/{topic}",
                 data=f"Currently running {index + 1}/{len(nn_combinations)} nn combinations.".encode(
@@ -114,7 +118,6 @@ def main():
             )
 
         run(options)
-
 
 if __name__ == "__main__":
     main()
