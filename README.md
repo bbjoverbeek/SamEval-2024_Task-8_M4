@@ -44,15 +44,19 @@ The `test.py` file can be used to train the model and retrieve the predictions f
 In the examples beneath here, the features are created for all the feature options we have.
 
 Train features:
-
 ```
 python create_features.py --input data/SubtaskA/subtaskA_train_monolingual.jsonl --output features/SubtaskA/train_monolingual --features domain tense voice sentiment named-entities pronouns pos-tags dep-tags
 ```
 
 Dev features:
-
 ```
 python create_features.py --input data/SubtaskA/subtaskA_train_monolingual.jsonl --output features/SubtaskA/train_monolingual --features domain tense voice sentiment named-entities pronouns pos-tags dep-tags
+```
+
+Test features:
+```
+python create_features.py --input test_data/subtaskA_monolingual.jsonl --output features/SubtaskA/test_monolingual --features 
+tense voice pronouns named-entities sentiment pos-tags dep-tags sentences sentence-similarity 
 ```
 
 The train and dev features for Subtask A are already created. They can be found
@@ -64,13 +68,11 @@ For more help on the arguments, run `python create_features.py --help`
 In the examples for vectorizing, only the sentiment feature is used for vectorizing.
 
 Train features:
-
 ```
 python vectorize.py --output vectors/SubtaskA/train_monolingual --input features/SubtaskA/train_monolingual --features sentiment  
 ```
 
 Dev features:
-
 ```
 python vectorize.py --output vectors/SubtaskA/dev_monolingual --input features/SubtaskA/dev_monolingual --features sentiment --vectorizer vectors/SubtaskA/train_monolingual     
 ```
