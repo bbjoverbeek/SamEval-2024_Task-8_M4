@@ -64,7 +64,7 @@ class Options:
     epochs: int = None
     batch_size: int = None
     learning_rate: float = None
-    optimizer: Optimizer = Optimizer.ADAM
+    optimizer: Optimizer = None
     classifier: str = None
 
 
@@ -86,7 +86,7 @@ def load_dataframe(options: Options, split: Literal["train", "dev", "test"]) -> 
     path = os.path.join(
         options.data_dir,
         f"Subtask{options.task.value}",
-        f"Subtask{options.task.value}_{split}{additional}.jsonl"
+        f"subtask{options.task.value}_{split}{additional}.jsonl"
     )
 
     return pd.read_json(path, lines=True)

@@ -60,6 +60,7 @@ def create_options(
             options.batch_size = batch_size
             options.learning_rate = learning_rate
             options.model_number = model_number
+            options.optimizer = Optimizer.ADAM
         case "traditional":
             options.classifier = other_options[0]
 
@@ -111,7 +112,7 @@ def run_combinations(model: Literal["nn", "traditional"], combinations: list) ->
     for index, combination in tqdm(enumerate(combinations), desc=f"Training {model} models", total=len(combinations)):
         options = create_options(model, TASK, combination)
 
-        if index % 50 == 0 and NOTIFY:
+        if index % 10 == 0 and NOTIFY:
             requests.post(
                 f"https://ntfy.sh/{TOPIC}",
                 data=f"Currently running {index + 1}/{len(combinations)} {model} combinations.".encode(
@@ -124,7 +125,7 @@ def run_combinations(model: Literal["nn", "traditional"], combinations: list) ->
 
 def main():
     classifier_combinations = create_classifier_combinations()
-    run_combinations("traditional", classifier_combinations)
+    run_combinations("traditional", classifier_combinations[125:])
     nn_combinations = create_nn_combinations()
     run_combinations("nn", nn_combinations)
 

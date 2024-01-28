@@ -192,7 +192,7 @@ def nn_model(model_number: int, classes: int, shape: tuple[int, int], batch_size
 
 
 def nn_optimizer(optimizer: Optimizer, learning_rate: float) -> tf.keras.optimizers.Optimizer:
-    print(optimizer)
+    # print(optimizer)
     match optimizer:
         case Optimizer.ADAM:
             return tf.keras.optimizers.Adam(learning_rate=learning_rate)
@@ -292,7 +292,7 @@ def save_results(options: Options, scores: list[float], accuracy: float) -> None
             options.epochs,
             options.batch_size,
             options.learning_rate,
-            options.optimizer.value
+            options.optimizer.value if options.optimizer else None
         ]
     ]
 
