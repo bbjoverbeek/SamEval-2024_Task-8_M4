@@ -98,3 +98,35 @@ Where `vectors` is the output directory, `SubtaskA` is the subtask, `dev_monolin
 
 This structure is needed for the `run.py` and `test.py` files. For the `model.py` file you can specify the input directory for both the training and test vectors. Also for the training and test data, but the internal structure of the data directory should be the same as provided by the shared task organizers.
 
+## Models with features used for submission
+### Subtask A
+The classifier models
+
+| Classifier | features                                            | Accuracy |
+|------------|-----------------------------------------------------|----------|
+| SVM        | tense - voice                                       | 0.687    |
+| SVM        | tense - voice - ratio-pron-ne                       | 0.699    |
+| SVM        | tense - voice - sentence-similarity - ratio-pron-ne | 0.698    |
+
+The nn models
+
+| Model options           | features                                            | Accuracy |
+|-------------------------|-----------------------------------------------------|----------|
+| 3 - 12e - b64 - l0.0001 | tense - voice - ratio-pron-ne                       | 0.72     |
+| 3 - 8e - b32 - l0.0001  | tense - voice - ratio-pron-ne - sentence-similarity | 0.701    |
+| 3 - 10e - b64 -l0.0001  | tense - voice - sentence-similarity                 | 0.697    |
+
+## Subtask B
+The classifier models
+
+| Classifier | features                                                     | accuracy |
+|------------|--------------------------------------------------------------|----------|
+| SVM        | tense - voice - sentiment - pos-tags - dep-tags - sentence-similarity - ratio-pron-ne | 0.592    |
+
+The nn models
+
+| Model options           | features                                                     | accuracy |
+|-------------------------|--------------------------------------------------------------|----------|
+| 2 - 48e - b32 - l0.0005 | tense - voice - pos-tags - dep-tags - ratio-pron-ne          | 0.62     |
+| 5 - 48e - b32 - l0.0005 | tense - voice - pos-tags - dep-tags - sentence-similarity - ratio-pron-ne | 0.625    |
+
