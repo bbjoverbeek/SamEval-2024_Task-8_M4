@@ -1,0 +1,4 @@
+model,classifier,nn_number,epochs,batch-size,learning-rate,optimizer,normalize-features,tense,voice,pronouns,named-entities,sentiment,pos-tags,dep-tags,sentences,domain,sentence-similarity,ratio-pron-ne,precision,recall,f1,accuracy
+traditional,svm,-,-,-,-,-,-,+,+,-,-,+,+,+,-,-,+,+,0.6010356242013609,0.6083888888888889,0.5789516246317536,0.6083888888888889
+nn,-,2,48,32,0.0005,adam,-,+,+,-,-,-,+,+,-,-,-,+,0.5379219208895765,0.5550555555555555,0.498734065168589,0.5550555555555555
+nn,-,5,48,32,0.0005,adam,-,+,+,-,-,-,+,+,-,-,+,+,0.5534347652407867,0.5637777777777778,0.5116122549198149,0.5637777777777778
