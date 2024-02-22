@@ -19,11 +19,12 @@ from utilities import Feature, Task, Options, load_data, Classifier, Optimizer
 
 """
 While similar to test.py, this file is used to train a model and save the results to a file (while the test.py file will
-only return the predictions made by the model). You can use the command line to create the model with different options. 
+only return the predictions made by the model). You can use the command line to create the model with different options.
 """
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-tf.keras.utils.disable_interactive_logging()
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
+# tf.keras.utils.disable_interactive_logging()
+MACOS = True
 
 
 def parse_args() -> argparse.Namespace:
@@ -142,66 +143,89 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def nn_model(model_number: int, classes: int, shape: tuple[int, int], batch_size: int) -> Sequential:
+def nn_output_layer(task: Task, activation) -> Dense:
+    """
+    Returns the output layer for a neural network model. When performing task A, the activation of the output layer will
+    become sigmoid when you have given softmax as the activation.
+    """
+
+    if activation == "softmax" and task == Task.A:
+        activation = "sigmoid"
+
+    match task:
+        case Task.A:
+            return Dense(1, activation=activation)
+        case Task.B:
+            return Dense(6, activation=activation)
+
+
+def nn_model(model_number: int, task: Task, shape: tuple[None, int], batch_size: int) -> Sequential:
     """Returns a neural network model."""
+
     match model_number:
         case 1:
             return Sequential([
                 Input(shape=shape, batch_size=batch_size),
                 Dense(64, activation="softmax"),
-                Dropout(0.5),
                 Dense(256, activation="softmax"),
-                Dropout(0.5),
                 Dense(32, activation="softmax"),
-                Dropout(0.5),
-                Dense(classes, activation="sigmoid"),
+                nn_output_layer(task, "softmax")
             ])
         case 2:
             return Sequential([
                 Input(shape=shape, batch_size=batch_size),
-                Dense(128, activation="relu"),
-                Dropout(0.5),
-                Dense(512, activation="relu"),
-                Dropout(0.5),
-                Dense(64, activation="relu"),
-                Dropout(0.5),
-                Dense(classes, activation="relu"),
+                Dense(24, activation="softmax"),
+                Dense(32, activation="softmax"),
+                Dense(16, activation="softmax"),
+                nn_output_layer(task, "softmax")
             ])
         case 3:
             return Sequential([
                 Input(shape=shape, batch_size=batch_size),
-                Dense(256, activation="relu"),
-                Dropout(0.5),
-                Dense(1024, activation="relu"),
-                Dropout(0.5),
-                Dense(128, activation="relu"),
-                Dropout(0.5),
-                Dense(classes, activation="relu"),
+                Dense(32, activation="softmax"),
+                Dense(64, activation="softmax"),
+                Dense(32, activation="softmax"),
+                Dense(16, activation="softmax"),
+                nn_output_layer(task, "softmax")
             ])
         case 4:
             return Sequential([
                 Input(shape=shape, batch_size=batch_size),
-                Dense(128, activation="relu"),
-                Dropout(0.5),
-                Dense(512, activation="relu"),
-                Dropout(0.5),
-                Dense(64, activation="relu"),
-                Dropout(0.5),
-                Dense(classes, activation="sigmoid"),
+                Dense(32, activation="softmax"),
+                Dropout(0.2),
+                Dense(64, activation="softmax"),
+                Dropout(0.2),
+                Dense(32, activation="softmax"),
+                Dropout(0.2),
+                Dense(16, activation="softmax"),
+                nn_output_layer(task, "softmax")
+            ])
+        case 5:
+            return Sequential([
+                Input(shape=shape, batch_size=batch_size),
+                Dense(64, activation="softmax"),
+                Dense(256, activation="softmax"),
+                Dense(128, activation="softmax"),
+                Dense(32, activation="softmax"),
+                nn_output_layer(task, "softmax")
             ])
 
 
 def nn_optimizer(optimizer: Optimizer, learning_rate: float) -> tf.keras.optimizers.Optimizer:
-    # print(optimizer)
+    if MACOS:
+        from tensorflow.keras.optimizers import legacy as optimizers
+    else:
+        from tensorflow.keras import optimizers
+
     match optimizer:
         case Optimizer.ADAM:
-            return tf.keras.optimizers.Adam(learning_rate=learning_rate)
+            return optimizers.Adam(learning_rate=learning_rate)
         case Optimizer.SGD:
-            return tf.keras.optimizers.SGD(learning_rate=learning_rate)
+            return optimizers.SGD(learning_rate=learning_rate)
         case Optimizer.RMS_PROP:
-            return tf.keras.optimizers.RMSprop(learning_rate=learning_rate)
+            return optimizers.RMSprop(learning_rate=learning_rate)
         case Optimizer.ADAGRAD:
-            return tf.keras.optimizers.Adagrad(learning_rate=learning_rate)
+            return optimizers.Adagrad(learning_rate=learning_rate)
 
 
 def train_nn(
@@ -212,7 +236,7 @@ def train_nn(
     """Trains a neural network."""
     classes = 2 if options.task == Task.A else 6
     shape = (None, train_vectors.shape[1])
-    model = nn_model(options.model_number, classes, shape, options.batch_size)
+    model = nn_model(options.model_number, options.task, shape, options.batch_size)
 
     model.compile(
         loss="binary_crossentropy",
@@ -220,13 +244,19 @@ def train_nn(
         metrics=["accuracy"],
     )
 
+    y_labels = to_categorical(train_labels, num_classes=classes)
+
+    if options.task == Task.A:
+        y_labels = np.argmax(y_labels, axis=1)
+
     model.fit(
         train_vectors,
-        to_categorical(train_labels, num_classes=classes),
+        y_labels,
         epochs=options.epochs,
         batch_size=options.batch_size,
         verbose=0,
-        callbacks=[TqdmCallback(verbose=2), ]
+        use_multiprocessing=True,
+        # callbacks=[TqdmCallback(verbose=2)]
     )
 
     return model
@@ -243,7 +273,7 @@ def train_classifier(
 
     match options.classifier:
         case "svm":
-            classifier = LinearSVC()
+            classifier = LinearSVC(dual=False)
         case "knn":
             neighbors = 5 if options.task == Task.A else 15
             classifier = KNeighborsClassifier(n_neighbors=neighbors)
@@ -255,10 +285,14 @@ def train_classifier(
     return classifier
 
 
-def predict_nn(model: Sequential, test_vectors: np.ndarray) -> list[int]:
+def predict_nn(model: Sequential, test_vectors: np.ndarray, task: Task) -> list[int]:
     """Predicts the labels for the given vectors."""
     predictions = model.predict(test_vectors)
-    predictions = np.argmax(predictions, axis=1)
+    if task == Task.A:
+        predictions = np.squeeze(predictions)
+        predictions = np.where(predictions > 0.5, 1, 0)
+    else:
+        predictions = np.argmax(predictions, axis=1)
     return predictions
 
 
@@ -272,7 +306,7 @@ def train_and_run_model(
     match options.model:
         case "nn":
             model = train_nn(options, train_vectors, train_labels)
-            return predict_nn(model, test_vectors)
+            return predict_nn(model, test_vectors, options.task)
         case "traditional":
             classifier = train_classifier(options, train_vectors, train_labels)
             return classifier.predict(test_vectors)
@@ -285,6 +319,8 @@ def save_results(options: Options, scores: list[float], accuracy: float) -> None
 
     normalize_features = "+" if options.normalize_features else "-"
 
+    optimizer = options.optimizer.value if options.optimizer is not None else None
+
     model_options = [
         option if option is not None else "-" for option in [
             options.classifier,
@@ -292,7 +328,7 @@ def save_results(options: Options, scores: list[float], accuracy: float) -> None
             options.epochs,
             options.batch_size,
             options.learning_rate,
-            options.optimizer.value if options.optimizer else None
+            optimizer
         ]
     ]
 
@@ -323,7 +359,7 @@ def save_results(options: Options, scores: list[float], accuracy: float) -> None
 
 
 def run(options: Options):
-    data = load_data(options)
+    data = load_data(options, dev_set=False)
 
     predictions = train_and_run_model(options, data.train_matrix, data.train_df["label"], data.test_matrix)
     scores = precision_recall_fscore_support(
